@@ -1,83 +1,147 @@
-﻿namespace BowlingGameApp
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.NetworkInformation;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace BowlingGameApp
 {
     public class BowlingGame
     {
-        public int rounds { get; set; }
-        public int currentRound { get; set; }
-        public int throwsLeft { get; set; }
-        public int maxPins { get; set; }
-        public bool strikeBonusEarned { get; set; }
-        public bool spareBonusEarned { get; set; }
-        public bool strikeCurrentRound { get; set; }
-        public bool spareCurrentRound { get; set; }
+        private GameStatus status;
+        private Rules rules;
+        private Score score;
 
-        public BowlingGame()
+        public void PlayGame()
         {
-            rounds = 10;
-            currentRound = 1;
-            maxPins = 10;
-            throwsLeft = 2;
-            strikeCurrentRound = false;
-            spareCurrentRound = false;
-            strikeBonusEarned = false;
-            spareBonusEarned |= false;
-        }
+            status = new GameStatus();
+            score = new Score();
+            rules = new Rules();
 
 
-        public int throwBall(int pinsRemaining)
-        {
-            Random random = new Random();
-            return random.Next(0, pinsRemaining + 1);
-        }
-
-        public int CalculateRemainingPins(int pins, List<int> currentRoundScore)
-        {
-            return pins - currentRoundScore[currentRoundScore.Count - 1];
-        }
-
-        public void updateRoundBonus(ref bool strikeBonusEarned, ref bool spareBonusEarned, int currentRound, ref bool strikeCurrentRound, ref bool spareCurrentRound, ref int throwsLeft, ref bool extendedRound, ref int pins)
-        {
-            if (extendedRound)
+            while (status.currentRound <= status.rounds)
             {
-                extendedRound = false;
-            }
+                
+                Console.WriteLine($"Round: {status.currentRound}");
 
-            if (strikeBonusEarned)
-            {
-                strikeBonusEarned = false;
-            }
-
-            if (spareBonusEarned)
-            {
-                spareBonusEarned = false;
-            }
-
-            if (strikeCurrentRound)
-            {
-                if (currentRound == 10)
+                while (status.throwsLeft > 0)
                 {
-                    extendedRound = true;
-                    throwsLeft = 2;
-                    strikeCurrentRound = false;
-                    pins = 10;
+                    Console.WriteLine("PRESS ENTER TO THROW THE BALL");
+                    Console.ReadLine();
+
+                    score.currentRoundScore.Add(status.throwBall(status.pins));
+                    status.pins = status.CalculateRemainingPins(status.pins, score.currentRoundScore);
+                    status.throwsLeft--;
+
+                    if (!status.extendedRound)
+                    {
+                        if (rules.isSpare(status.pins, status.throwsLeft))
+                        {
+                            status.spareCurrentRound = true;
+                            Console.WriteLine("IT'S A SPAAAREEE!!!");
+                        }
+                        if (rules.isStrike(status.pins, status.throwsLeft))
+                        {
+                            status.strikeCurrentRound = true;
+                            status.throwsLeft = 0;
+                            Console.WriteLine("IT'S A STRIIIIIKEEEE!!!");
+                        }
+                    }
+                    else
+                    {
+                        if (status.throwsLeft > 0 && status.pins == 0)
+                        {
+                            status.pins = status.maxPins;
+                        }
+                    }
+
+                    Console.WriteLine($"You Scored: {score.currentRoundScore[score.currentRoundScore.Count - 1]}");
+
+                    if (status.throwsLeft == 0)
+                    {
+                        var sumOfRoundScore = score.calculateTotalRoundScore(score.currentRoundScore, status.strikeBonusEarned, status.spareBonusEarned, status.extendedRound);
+                        UpdateRoundBonus();
+
+
+                        if (status.extendedRound)
+                        {
+                            Console.WriteLine($"You Have Earned {status.throwsLeft} More Throws");
+                        }
+                        else
+                        {
+                            score.totalScore.Add(sumOfRoundScore);
+                            Console.WriteLine($"You're Score For The Current Round Is: {sumOfRoundScore}");
+                            Console.WriteLine($"You're Total Score is: {score.totalScore.Sum()}");
+                            if (status.currentRound == 10)
+                            {
+                                Console.WriteLine("The Game Is Finished. Press Enter To Exit");
+                                Console.ReadLine();
+                            }
+                        }
+                    }
+                }
+                UpdateGameStatus();
+                Console.WriteLine("................................................................................................");
+            }
+
+        }
+
+
+        private void UpdateGameStatus()
+        {
+            status.throwsLeft = status.maxThrows;
+            status.currentRound++;
+            score.currentRoundScore.Clear();
+            status.pins = status.maxPins;
+        }
+
+
+        private void UpdateRoundBonus()
+        {
+            if (status.extendedRound)
+            {
+                status.extendedRound = false;
+            }
+
+            if (status.strikeBonusEarned)
+            {
+                status.strikeBonusEarned = false;
+            }
+
+            if (status.spareBonusEarned)
+            {
+                status.spareBonusEarned = false;
+            }
+
+            if (status.strikeCurrentRound)
+            {
+                if (status.currentRound == 10)
+                {
+                    status.extendedRound = true;
+                    status.throwsLeft = status.maxThrows;
+                    status.strikeCurrentRound = false;
+                    status.pins = status.maxPins;
                 }
                 else
                 {
-                    strikeBonusEarned = true;
+                    status.strikeCurrentRound = false;
+                    status.strikeBonusEarned = true;
                 }
             }
-            if (spareCurrentRound)
+            if (status.spareCurrentRound)
             {
-                if (currentRound == 10)
+                if (status.currentRound == 10)
                 {
-                    extendedRound = true;
-                    throwsLeft = 1;
-                    spareCurrentRound = false;
-                    pins = 10;
+                    status.extendedRound = true;
+                    status.throwsLeft = 1;
+                    status.spareCurrentRound = false;
+                    status.pins = status.maxPins;
                 }
                 else
                 {
-                    spareBonusEarned = true;
+                    status.spareCurrentRound = false;
+                    status.spareBonusEarned = true;
                 }
             }
         }
